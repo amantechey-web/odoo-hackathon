@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brightloop – Subscription Management</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --ink:#14192b; --muted:#667085; --line:#e3e7ef;
+    --brand:#4f46e5; --brand-d:#4338ca; --soft:#eef0ff; --ok:#12a150; --warn:#b54708; --err:#d92d20;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  .hidden{display:none!important}
+
+  /* =============== AUTH (sign up / sign in / forgot) =============== */
+  #auth{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+  #auth .hero{background:linear-gradient(150deg,#4f46e5,#7c3aed 60%,#a855f7);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between}
+  #auth .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.01em}
+  #auth .logo i{width:30px;height:30px;border-radius:50%;border:5px solid #fff;border-right-color:transparent;display:inline-block}
+  #auth .hero h1{font-size:38px;line-height:1.15;margin:0 0 16px;letter-spacing:-.02em}
+  #auth .hero p{opacity:.9;font-size:17px;max-width:420px;line-height:1.55;margin:0}
+  #auth .hero ul{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:12px;font-size:15px}
+  #auth .hero li::before{content:"✓";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.2);margin-right:10px;font-size:12px}
+  #auth .hero small{opacity:.7}
+  #auth main{display:grid;place-items:center;padding:32px}
+  #auth .card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;box-shadow:0 8px 30px rgba(20,25,43,.06)}
+  #auth .tabs{display:flex;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:24px}
+  #auth .tabs button{flex:1;border:0;background:none;padding:9px;border-radius:8px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+  #auth .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  #auth h2{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+  #auth .sub{margin:0 0 22px;color:var(--muted);font-size:14px}
+  #auth label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  #auth .field{position:relative}
+  #auth input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+  #auth input:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  #auth input.bad{border-color:var(--err)}
+  #auth .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;padding:6px 8px}
+  #auth .err{color:var(--err);font-size:12.5px;margin-top:5px}
+  #auth .rules{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12.5px;color:var(--muted)}
+  #auth .rules li::before{content:"○";margin-right:6px}
+  #auth .rules li.ok{color:var(--ok)} #auth .rules li.ok::before{content:"●"}
+  #auth .btn{width:100%;margin-top:22px;padding:12px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  #auth .btn:hover{background:var(--brand-d)}
+  #auth .link{background:none;border:0;color:var(--brand);font:inherit;font-weight:600;cursor:pointer;padding:0}
+  #auth .row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px}
+  #auth .note{margin-top:16px;padding:12px;border-radius:10px;font-size:13px;line-height:1.5}
+  #auth .note.ok{background:#e8f7ee;color:#0b6b36} #auth .note.info{background:var(--soft);color:#3730a3}
+  #auth .foot{margin-top:18px;font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
+
+  /* =============== DASHBOARD =============== */
+  #app .layout{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  #app aside{background:#fff;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+  #app .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;padding:0 10px 18px}
+  #app .logo i{width:24px;height:24px;border-radius:50%;border:4px solid var(--brand);border-right-color:transparent;display:inline-block}
+  #app aside a{display:block;padding:10px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;cursor:pointer}
+  #app aside a.on,#app aside a:hover{background:var(--soft);color:var(--brand)}
+  #app .spacer{flex:1}
+  #app .me{padding:12px;border-top:1px solid var(--line);font-size:13px}
+  #app .me b{display:block} #app .me span{color:var(--muted);word-break:break-all}
+  #app .me button{margin-top:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  #app main{padding:28px 32px;min-width:0}
+  #app header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  #app h1{margin:0;font-size:24px;letter-spacing:-.01em}
+  #app header p{margin:4px 0 0;color:var(--muted);font-size:14px}
+  #app .demo{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:#fff;border:1px dashed var(--line);padding:6px 10px;border-radius:10px}
+  #app select,#app input[type=search],#app input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13.5px;background:#fff;color:var(--ink)}
+  #app .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  #app .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  #app .kpi small{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+  #app .kpi strong{display:block;font-size:28px;margin:8px 0 2px;letter-spacing:-.02em}
+  #app .kpi span{font-size:12.5px;color:var(--muted)}
+  #app .kpi.err strong{color:var(--err)}
+  #app .grid2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:18px}
+  #app .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+  #app .panel h3{margin:0 0 14px;font-size:15px}
+  #app .bars{display:flex;align-items:flex-end;gap:12px;height:170px;padding-top:8px}
+  #app .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+  #app .bar div{width:100%;max-width:46px;background:var(--brand);border-radius:6px 6px 0 0;min-height:2px}
+  #app .bar div.cur{background:#a5a0f5}
+  #app .bar span{font-size:11.5px;color:var(--muted)} #app .bar em{font-style:normal;font-size:11px;font-weight:600}
+  #app .pipe{display:grid;gap:10px}
+  #app .pipe div{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+  #app .pipe .track{flex:1;height:8px;background:var(--bg);border-radius:6px;margin:0 12px;overflow:hidden}
+  #app .pipe .track i{display:block;height:100%;background:var(--brand)}
+  #app .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  #app .toolbar .grow{flex:1;min-width:180px}
+  #app .seg{display:flex;background:var(--bg);padding:3px;border-radius:10px}
+  #app .seg button{border:0;background:none;padding:7px 14px;border-radius:8px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  #app .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  #app .tablewrap{overflow-x:auto}
+  #app table{width:100%;border-collapse:collapse;font-size:13.5px}
+  #app th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  #app td{padding:12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  #app tr:last-child td{border-bottom:0}
+  #app td.num,#app th.num{text-align:right}
+  .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
+  .p-active,.p-paid{background:#e8f7ee;color:#0b6b36}
+  .p-draft{background:#eef0f4;color:#475467}
+  .p-quotation,.p-confirmed{background:#e8f0ff;color:#1d4ed8}
+  .p-closed{background:#f2f4f7;color:#667085}
+  .p-overdue{background:#fdeceb;color:#b42318}
+  #app .pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;color:var(--muted)}
+  #app .pager button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
+  #app .pager button:disabled{opacity:.4;cursor:default}
+  #app .empty{text-align:center;color:var(--muted);padding:36px 0}
+
+  @media(max-width:1000px){#app .kpis{grid-template-columns:repeat(2,1fr)}#app .grid2{grid-template-columns:1fr}}
+  @media(max-width:860px){#auth{grid-template-columns:1fr}#auth .hero{display:none}}
+  @media(max-width:760px){#app .layout{grid-template-columns:1fr}#app aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}#app .spacer{display:none}#app .me{border:0;padding:0 8px}#app main{padding:18px 14px}}
+</style>
+</head>
+<body>
+
+<!-- ======================= AUTH VIEW ======================= -->
+<div id="auth">
+  <section class="hero">
+    <div class="logo"><i></i> Brightloop</div>
+    <div>
+      <h1>Every subscription,<br>one place.</h1>
+      <p>Manage plans, invoices, payments and renewals without spreadsheets or missed billing days.</p>
+      <ul>
+        <li>See and manage your own subscriptions</li>
+        <li>Invoices created automatically, never twice</li>
+        <li>Track what is paid and what is outstanding</li>
+      </ul>
+    </div>
+    <small>© Brightloop Software</small>
+  </section>
+
+  <main>
+    <div class="card">
+      <div class="tabs">
+        <button id="tab-signup" class="on" type="button">Sign up</button>
+        <button id="tab-signin" type="button">Sign in</button>
+      </div>
+
+      <form id="signup" novalidate>
+        <h2>Create your account</h2>
+        <p class="sub">Start managing your subscriptions in minutes.</p>
+
+        <label for="su-name">Full name</label>
+        <input id="su-name" autocomplete="name" placeholder="Priya Sharma">
+        <div class="err" id="su-name-e"></div>
+
+        <label for="su-email">Email</label>
+        <input id="su-email" type="email" autocomplete="email" placeholder="you@company.com">
+        <div class="err" id="su-email-e"></div>
+
+        <label for="su-pass">Password</label>
+        <div class="field">
+          <input id="su-pass" type="password" autocomplete="new-password">
+          <button type="button" class="eye" data-for="su-pass">Show</button>
+        </div>
+        <ul class="rules" id="rules">
+          <li data-r="len">More than 8 characters</li>
+          <li data-r="up">Uppercase letter</li>
+          <li data-r="low">Lowercase letter</li>
+          <li data-r="sp">Special character</li>
+        </ul>
+
+        <label for="su-pass2">Confirm password</label>
+        <input id="su-pass2" type="password" autocomplete="new-password">
+        <div class="err" id="su-pass2-e"></div>
+
+        <button class="btn" type="submit">Create account</button>
+        <div class="foot">Customer accounts only. Staff accounts are added by an admin.</div>
+      </form>
+
+      <form id="signin" class="hidden" novalidate>
+        <h2>Welcome back</h2>
+        <p class="sub">Sign in to your portal.</p>
+        <label for="si-email">Email</label>
+        <input id="si-email" type="email" autocomplete="email">
+        <label for="si-pass">Password</label>
+        <div class="field">
+          <input id="si-pass" type="password" autocomplete="current-password">
+          <button type="button" class="eye" data-for="si-pass">Show</button>
+        </div>
+        <div class="err" id="si-e"></div>
+        <div class="row"><span></span><button type="button" class="link" id="to-forgot">Forgot password?</button></div>
+        <button class="btn" type="submit">Sign in</button>
+        <div class="note info">Demo admin: <b>admin@brightloop.com</b> / <b>Admin@12345</b></div>
+      </form>
+
+      <form id="forgot" class="hidden" novalidate>
+        <h2>Reset your password</h2>
+        <p class="sub">We'll send a reset link to your registered email.</p>
+        <label for="fp-email">Email</label>
+        <input id="fp-email" type="email" autocomplete="email">
+        <div class="err" id="fp-e"></div>
+        <button class="btn" type="submit">Send reset link</button>
+        <div id="fp-ok" class="note ok hidden"></div>
+        <div class="row" style="justify-content:center"><button type="button" class="link" id="to-signin">Back to sign in</button></div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<!-- ======================= DASHBOARD VIEW ======================= -->
+<div id="app" class="hidden">
+  <div class="layout">
+    <aside>
+      <div class="logo"><i></i> Brightloop</div>
+      <a class="on">Home</a>
+      <a data-nav="subs">Subscriptions</a>
+      <a data-nav="inv">Invoices</a>
+      <a data-nav="pay">Payments</a>
+      <a class="admin-only" style="display:none">Plans &amp; products</a>
+      <a class="admin-only" style="display:none">Discounts &amp; taxes</a>
+      <a class="admin-only" style="display:none">Staff</a>
+      <div class="spacer"></div>
+      <div class="me"><b id="me-name"></b><span id="me-email"></span><br><button id="logout">Sign out</button></div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <h1 id="title">Dashboard</h1>
+          <p id="subtitle"></p>
+        </div>
+        <div class="demo">Demo view as
+          <select id="role">
+            <option value="admin">Admin</option>
+            <option value="staff">Staff</option>
+            <option value="customer">Customer</option>
+          </select>
+        </div>
+      </header>
+
+      <section class="kpis">
+        <div class="kpi"><small>Active subscriptions</small><strong id="k-active">0</strong><span id="k-active-s"></span></div>
+        <div class="kpi"><small>Revenue collected</small><strong id="k-rev">0</strong><span id="k-rev-s"></span></div>
+        <div class="kpi"><small>Outstanding</small><strong id="k-out">0</strong><span id="k-out-s"></span></div>
+        <div class="kpi err"><small>Overdue invoices</small><strong id="k-over">0</strong><span id="k-over-s"></span></div>
+      </section>
+
+      <section class="grid2">
+        <div class="panel"><h3>Revenue collected, last 6 months</h3><div class="bars" id="bars"></div></div>
+        <div class="panel"><h3>Subscription lifecycle</h3><div class="pipe" id="pipe"></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <div class="seg" id="seg">
+            <button data-t="subs" class="on">Subscriptions</button>
+            <button data-t="inv">Invoices</button>
+            <button data-t="pay">Payments</button>
+          </div>
+          <input type="search" id="q" class="grow" placeholder="Search customer, number or plan">
+          <select id="f-status"></select>
+          <label style="font-size:13px;color:var(--muted)">From <input type="date" id="f-from"></label>
+          <label style="font-size:13px;color:var(--muted)">To <input type="date" id="f-to"></label>
+        </div>
+        <div class="tablewrap"><table id="tbl"></table></div>
+        <div class="pager"><span id="count"></span><span><button id="prev">Previous</button> <button id="next">Next</button></span></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY_USERS='bl_users', KEY_SESSION='bl_session';
+
+/* =====================================================================
+   DEMO STORAGE LAYER
+   In production, replace with backend API calls: hash passwords on the
+   server, enforce unique email in the database, send reset emails from
+   the server, and enforce roles server-side.
+   ===================================================================== */
+const users=()=>JSON.parse(localStorage.getItem(KEY_USERS)||'[]');
+const saveUsers=u=>localStorage.setItem(KEY_USERS,JSON.stringify(u));
+const getSession=()=>JSON.parse(localStorage.getItem(KEY_SESSION)||'null');
+async function hash(s){
+  try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+      return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+  catch{return btoa(s)}
+}
+(async()=>{ if(!users().some(u=>u.email==='admin@brightloop.com'))
+  saveUsers([...users(),{name:'Admin',email:'admin@brightloop.com',role:'admin',pass:await hash('Admin@12345')}]);
+})();
+
+/* =============================== AUTH =============================== */
+const views={signup:$('signup'),signin:$('signin'),forgot:$('forgot')};
+function showAuthView(v){
+  Object.entries(views).forEach(([k,el])=>el.classList.toggle('hidden',k!==v));
+  $('tab-signup').classList.toggle('on',v==='signup');
+  $('tab-signin').classList.toggle('on',v!=='signup');
+}
+$('tab-signup').onclick=()=>showAuthView('signup');
+$('tab-signin').onclick=()=>showAuthView('signin');
+$('to-forgot').onclick=()=>showAuthView('forgot');
+$('to-signin').onclick=()=>showAuthView('signin');
+document.querySelectorAll('.eye').forEach(b=>b.onclick=()=>{
+  const i=$(b.dataset.for); const t=i.type==='password'; i.type=t?'text':'password'; b.textContent=t?'Hide':'Show';
+});
+
+const checks={
+  len:p=>p.length>8,
+  up:p=>/[A-Z]/.test(p),
+  low:p=>/[a-z]/.test(p),
+  sp:p=>/[^A-Za-z0-9]/.test(p)
+};
+const validPass=p=>Object.values(checks).every(f=>f(p));
+$('su-pass').addEventListener('input',e=>{
+  document.querySelectorAll('#rules li').forEach(li=>li.classList.toggle('ok',checks[li.dataset.r](e.target.value)));
+});
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const setErr=(id,msg,inputId)=>{ $(id).textContent=msg||''; if(inputId)$(inputId).classList.toggle('bad',!!msg); };
+
+$('signup').addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const name=$('su-name').value.trim(), email=$('su-email').value.trim().toLowerCase();
+  const p=$('su-pass').value, p2=$('su-pass2').value;
+  let ok=true;
+  setErr('su-name-e',name?'':'Please enter your name.','su-name'); if(!name)ok=false;
+  if(!emailOk(email)){setErr('su-email-e','Enter a valid email address.','su-email');ok=false}
+  else if(users().some(u=>u.email===email)){setErr('su-email-e','An account with this email already exists.','su-email');ok=false}
+  else setErr('su-email-e','','su-email');
+  $('su-pass').classList.toggle('bad',!validPass(p)); if(!validPass(p))ok=false;
+  if(p!==p2){setErr('su-pass2-e','Passwords do not match.','su-pass2');ok=false} else setErr('su-pass2-e','','su-pass2');
+  if(!ok)return;
+  saveUsers([...users(),{name,email,role:'customer',pass:await hash(p)}]);
+  localStorage.setItem(KEY_SESSION,JSON.stringify({name,email,role:'customer'}));
+  localStorage.removeItem('bl_demo_role');
+  boot();
+});
+
+$('signin').addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const email=$('si-email').value.trim().toLowerCase(), h=await hash($('si-pass').value);
+  const u=users().find(x=>x.email===email&&x.pass===h);
+  if(!u){$('si-e').textContent='Incorrect email or password.';return}
+  localStorage.setItem(KEY_SESSION,JSON.stringify({name:u.name,email:u.email,role:u.role}));
+  localStorage.removeItem('bl_demo_role');
+  boot();
+});
+
+$('forgot').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const email=$('fp-email').value.trim().toLowerCase();
+  if(!emailOk(email)){$('fp-e').textContent='Enter a valid email address.';return}
+  $('fp-e').textContent='';
+  const box=$('fp-ok'); box.classList.remove('hidden');
+  box.textContent='If '+email+' is registered, a reset link is on its way. (Demo: no email is actually sent. Your backend should email a single-use, expiring link.)';
+});
+
+/* ============================ DASHBOARD DATA ============================ */
+const TODAY=new Date(); TODAY.setHours(0,0,0,0);
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const iso=d=>d.toISOString().slice(0,10);
+let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const CUSTOMERS=['Northwind Traders','Acme Retail','Bluebird Cafe','Cedar Logistics','Delta Dental','Evergreen Foods','Fable Studios','Granite Works','Harbor Books','Indigo Labs','Juniper Clinic','Kite Electronics'];
+const PLANS=[
+  {n:'Starter Monthly',p:499,every:'Monthly',days:30},
+  {n:'Pro Monthly',p:1499,every:'Monthly',days:30},
+  {n:'Business Yearly',p:14999,every:'Yearly',days:365},
+  {n:'Odoo Add-on (Weekly)',p:560,every:'Weekly',days:7}
+];
+const STATUS_W=['active','active','active','active','confirmed','quotation','draft','closed'];
+const METHODS=['Bank transfer','Card','UPI','Cheque'];
+const subs=[],invoices=[],payments=[];
+for(let i=1;i<=80;i++){
+  const plan=pick(PLANS), status=pick(STATUS_W), qty=1+Math.floor(rnd()*8);
+  const start=addDays(TODAY,-Math.floor(rnd()*220)), expiry=addDays(start,365);
+  const s={id:'SUB-'+String(i).padStart(4,'0'),customer:CUSTOMERS[i%CUSTOMERS.length],plan:plan.n,every:plan.every,qty,
+           amount:plan.p*qty,status,start:iso(start),expiry:iso(expiry)};
+  subs.push(s);
+  if(status==='active'||status==='closed'){
+    let d=new Date(start),n=0;
+    while(d<=TODAY&&n<8){
+      const inv={id:'INV-'+String(invoices.length+1).padStart(5,'0'),sub:s.id,customer:s.customer,plan:plan.n,
+        amount:Math.round(s.amount*1.18),date:iso(d),due:iso(addDays(d,15)),status:'confirmed'};
+      const age=(TODAY-d)/864e5;
+      if(rnd()<0.8||age>60&&rnd()<0.7) inv.status='paid';
+      if(inv.status==='paid'){
+        const pd=addDays(d,Math.floor(rnd()*14));
+        if(pd>TODAY)inv.status='confirmed'; else
+        payments.push({id:'PAY-'+String(payments.length+1).padStart(5,'0'),inv:inv.id,customer:s.customer,
+          method:pick(METHODS),amount:inv.amount,date:iso(pd),note:rnd()<.3?'Received on follow-up':''});
+      }
+      invoices.push(inv);
+      d=addDays(d,Math.max(plan.days,30)); n++;
+    }
+  }
+}
+const isOverdue=i=>i.status==='confirmed'&&new Date(i.due)<TODAY;
+const fmt=n=>'₹'+n.toLocaleString('en-IN');
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const pill=(c,t)=>`<span class="pill p-${c}">${t}</span>`;
+let tab='subs',page=0;const PER=10;
+
+function scope(){
+  const role=$('role').value;
+  const mine=r=>role!=='customer'||r.customer==='Northwind Traders'; // customers see only their own
+  return {role,subs:subs.filter(mine),inv:invoices.filter(mine),pay:payments.filter(mine)};
+}
+function renderKpis(S){
+  const act=S.subs.filter(s=>s.status==='active');
+  const rev=S.pay.reduce((a,p)=>a+p.amount,0);
+  const open=S.inv.filter(i=>i.status==='confirmed');
+  const over=open.filter(isOverdue);
+  $('k-active').textContent=act.length;
+  $('k-active-s').textContent='MRR ≈ '+fmt(Math.round(act.reduce((a,s)=>a+s.amount*({Monthly:1,Yearly:1/12,Weekly:4.33}[s.every]),0)));
+  $('k-rev').textContent=fmt(rev); $('k-rev-s').textContent=S.pay.length+' payments recorded';
+  $('k-out').textContent=fmt(open.reduce((a,i)=>a+i.amount,0)); $('k-out-s').textContent=open.length+' unpaid invoices';
+  $('k-over').textContent=over.length; $('k-over-s').textContent=fmt(over.reduce((a,i)=>a+i.amount,0))+' to chase';
+}
+function renderBars(S){
+  const months=[];
+  for(let k=5;k>=0;k--){const d=new Date(TODAY.getFullYear(),TODAY.getMonth()-k,1);
+    months.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:d.toLocaleString('en',{month:'short'}),v:0})}
+  S.pay.forEach(p=>{const m=months.find(x=>x.key===p.date.slice(0,7)); if(m)m.v+=p.amount});
+  const max=Math.max(...months.map(m=>m.v),1);
+  $('bars').innerHTML=months.map((m,i)=>`<div class="bar"><em>${m.v?'₹'+(m.v/1000).toFixed(0)+'k':''}</em><div class="${i===5?'cur':''}" style="height:${m.v/max*100}%"></div><span>${m.label}</span></div>`).join('');
+}
+function renderPipe(S){
+  const order=['draft','quotation','confirmed','active','closed'];
+  const max=Math.max(...order.map(o=>S.subs.filter(s=>s.status===o).length),1);
+  $('pipe').innerHTML=order.map(o=>{const n=S.subs.filter(s=>s.status===o).length;
+    return `<div><span style="width:78px;text-transform:capitalize">${o}</span><span class="track"><i style="width:${n/max*100}%"></i></span><b>${n}</b></div>`}).join('');
+}
+const STATUS_OPTS={subs:['draft','quotation','confirmed','active','closed'],inv:['draft','confirmed','paid','overdue'],pay:[]};
+function setFilterOptions(){
+  const o=STATUS_OPTS[tab]; const sel=$('f-status');
+  sel.style.display=o.length?'':'none';
+  sel.innerHTML='<option value="">All statuses</option>'+o.map(x=>`<option value="${x}">${cap(x)}</option>`).join('');
+}
+function rows(S){
+  const q=$('q').value.toLowerCase(),st=$('f-status').value,from=$('f-from').value,to=$('f-to').value;
+  const list=tab==='subs'?S.subs:tab==='inv'?S.inv:S.pay;
+  const dateKey=tab==='subs'?'start':'date';
+  return list.filter(r=>{
+    if(q&&!Object.values(r).join(' ').toLowerCase().includes(q))return false;
+    if(st){ if(tab==='inv'){ if(st==='overdue'?!isOverdue(r):r.status!==st)return false } else if(r.status!==st)return false }
+    if(from&&r[dateKey]<from)return false; if(to&&r[dateKey]>to)return false;
+    return true;
+  }).sort((a,b)=>b[dateKey].localeCompare(a[dateKey]));
+}
+function renderTable(S){
+  const list=rows(S), pages=Math.max(1,Math.ceil(list.length/PER)); if(page>=pages)page=pages-1;
+  const slice=list.slice(page*PER,page*PER+PER);
+  const showCust=S.role!=='customer';
+  let head,body;
+  if(tab==='subs'){
+    head=['Number',showCust&&'Customer','Plan','Billing','Qty','Start','Expiry','Amount','Status'];
+    body=slice.map(r=>[r.id,showCust&&r.customer,r.plan,r.every,r.qty,r.start,r.expiry,fmt(r.amount),pill(r.status,cap(r.status))]);
+  }else if(tab==='inv'){
+    head=['Invoice',showCust&&'Customer','Subscription','Date','Due','Amount','Status'];
+    body=slice.map(r=>[r.id,showCust&&r.customer,r.sub,r.date,r.due,fmt(r.amount),isOverdue(r)?pill('overdue','Overdue'):pill(r.status,cap(r.status))]);
+  }else{
+    head=['Payment',showCust&&'Customer','Invoice','Method','Date','Amount','Note'];
+    body=slice.map(r=>[r.id,showCust&&r.customer,r.inv,r.method,r.date,fmt(r.amount),r.note||'–']);
+  }
+  const cols=head.map((h,i)=>({h,i})).filter(c=>c.h);
+  const numCols=['Amount','Qty'];
+  $('tbl').innerHTML=slice.length
+    ?`<thead><tr>${cols.map(c=>`<th class="${numCols.includes(c.h)?'num':''}">${c.h}</th>`).join('')}</tr></thead>
+      <tbody>${body.map(r=>`<tr>${cols.map(c=>`<td class="${numCols.includes(c.h)?'num':''}">${r[c.i]}</td>`).join('')}</tr>`).join('')}</tbody>`
+    :`<tbody><tr><td class="empty">No records match these filters.</td></tr></tbody>`;
+  $('count').textContent=list.length?`Showing ${page*PER+1}–${page*PER+slice.length} of ${list.length}`:'0 results';
+  $('prev').disabled=page===0; $('next').disabled=page>=pages-1;
+}
+function renderDashboard(){
+  const session=getSession(); if(!session)return;
+  const S=scope(), admin=S.role==='admin';
+  document.querySelectorAll('.admin-only').forEach(a=>a.style.display=admin?'block':'none');
+  $('title').textContent=S.role==='customer'?'Your subscriptions':'Dashboard';
+  $('subtitle').textContent=S.role==='customer'?'Your plans, invoices and payments in one place.'
+    :`Welcome back, ${session.name.split(' ')[0]}. Here is how recurring revenue looks today.`;
+  renderKpis(S);renderBars(S);renderPipe(S);renderTable(S);
+}
+
+/* Dashboard events (attached once) */
+$('seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  tab=b.dataset.t;page=0;document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));
+  setFilterOptions();renderDashboard()};
+['q','f-status','f-from','f-to'].forEach(id=>$(id).addEventListener('input',()=>{page=0;renderTable(scope())}));
+$('prev').onclick=()=>{page--;renderTable(scope())};
+$('next').onclick=()=>{page++;renderTable(scope())};
+$('role').onchange=()=>{localStorage.setItem('bl_demo_role',$('role').value);page=0;renderDashboard()};
+document.querySelectorAll('[data-nav]').forEach(a=>a.onclick=()=>{
+  document.querySelector(`#seg [data-t="${a.dataset.nav}"]`).click();
+  document.querySelector('#app .toolbar').scrollIntoView({behavior:'smooth'})});
+$('logout').onclick=()=>{localStorage.removeItem(KEY_SESSION);boot()};
+
+/* =============================== ROUTER =============================== */
+function boot(){
+  const session=getSession();
+  $('auth').classList.toggle('hidden',!!session);
+  $('app').classList.toggle('hidden',!session);
+  if(session){
+    $('me-name').textContent=session.name; $('me-email').textContent=session.email;
+    $('role').value=localStorage.getItem('bl_demo_role')||session.role||'customer';
+    tab='subs';page=0;
+    document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x.dataset.t==='subs'));
+    setFilterOptions();renderDashboard();
+  }else{
+    ['su-name','su-email','su-pass','su-pass2','si-email','si-pass','fp-email'].forEach(id=>$(id).value='');
+    document.querySelectorAll('#rules li').forEach(li=>li.classList.remove('ok'));
+    showAuthView('signup');
+  }
+  window.scrollTo(0,0);
+}
+boot();
+</script>
+</body>
+</html>
