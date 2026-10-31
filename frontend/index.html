@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brightloop</title>
+<style>
+ :root{--navy:#1d2b64;--bg:#f4f6fb;--ink:#1c2333}
+ body{font-family:system-ui,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+ nav{background:var(--navy);padding:12px 24px;display:flex;gap:20px}
+ nav a{color:#fff;font-weight:600;cursor:pointer;opacity:.75}nav a.on{opacity:1;border-bottom:2px solid #fff}
+ main{padding:24px;max-width:1150px;margin:auto}
+ table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;margin-top:12px}
+ th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #e6e9f2;font-size:14px}th{background:#eef1fa}
+ .card{display:inline-block;background:#fff;padding:16px 24px;margin:0 12px 12px 0;border-radius:10px;box-shadow:0 1px 3px #0002}
+ .card b{display:block;font-size:26px;color:var(--navy)}
+ input,select,button{padding:7px;margin:3px;border:1px solid #ccd;border-radius:6px;font:inherit}
+ button{background:var(--navy);color:#fff;cursor:pointer;border:0}button.sm{padding:4px 8px;font-size:12px}
+ .tag{padding:2px 8px;border-radius:10px;background:#dde3f7;font-size:12px}
+ .tag.Paid,.tag.Active{background:#c9f0d3}.tag.Cancelled,.tag.Closed{background:#f7d4d4}
+ #msg{position:fixed;top:10px;right:10px;background:#1c2333;color:#fff;padding:10px 16px;border-radius:8px;display:none}
+ #msg.err{background:#b3261e}
+</style>
+</head>
+<body>
+<nav>
+ <a data-p="dashboard">Dashboard</a><a data-p="plans">Plans</a>
+ <a data-p="subs">Subscriptions</a><a data-p="invoices">Invoices</a>
+</nav>
+<div id="msg"></div>
+<main id="view"></main>
+
+<script>
+const API = "/api";
+const $ = s => document.querySelector(s);
+const view = $("#view");
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(text, bad) {
+  const m = $("#msg"); m.textContent = text; m.className = bad ? "err" : "";
+  m.style.display = "block"; setTimeout(() => m.style.display = "none", 2800);
+}
+async function api(path, method = "GET", body) {
+  const r = await fetch(API + path, {
+    method, headers: {"Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(data.error || "Request failed", true); throw new Error(data.error); }
+  return data;
+}
+const formData = f => Object.fromEntries(new FormData(f).entries());
+const today = () => new Date().toISOString().slice(0, 10);
+
+/* ---------- pages ---------- */
+const pages = {
+  async dashboard() {
+    const d = await api("/dashboard");
+    view.innerHTML = `<h2>Finance Dashboard</h2>
+      <div class=card>Active subscriptions<b>${d.active}</b></div>
+      <div class=card>MRR (normalised)<b>${d.mrr}</b></div>
+      <div class=card>Revenue collected<b>${d.collected}</b></div>
+      <div class=card>Outstanding<b>${d.outstanding}</b></div>
+      <div class=card>Overdue invoices<b>${d.overdue_count}</b></div>
+      <h3>Overdue invoices</h3>
+      <table><tr><th>Invoice<th>Customer<th>Due<th>Total</tr>
+      ${d.overdue.map(i => `<tr><td>${esc(i.number)}<td>${esc(i.customer)}<td>${i.due_date}<td>${i.total}</tr>`).join("")}</table>`;
+  },
+
+  async plans() {
+    const list = await api("/plans");
+    view.innerHTML = `<h2>Plans</h2>
+      <form id=pf>
+        <input name=name placeholder="Plan name" required><input name=product placeholder=Product>
+        <input name=price type=number step=0.01 placeholder=Price required>
+        <select name=period><option>daily<option>weekly<option selected>monthly<option>yearly</select>
+        <input name=min_qty type=number value=1 placeholder="Min qty">
+        From <input name=start_date type=date> To <input name=end_date type=date><br>
+        <label><input type=checkbox name=auto_close> Auto-close at end</label>
+        <label><input type=checkbox name=allow_pause checked> Pausable</label>
+        <label><input type=checkbox name=allow_close checked> Closable early</label>
+        <label><input type=checkbox name=allow_renew checked> Renewable</label>
+        <button>Add plan</button>
+      </form>
+      <table><tr><th>Plan<th>Product<th>Price<th>Billing<th>Min qty<th>Available<th>Rules</tr>
+      ${list.map(p => `<tr><td>${esc(p.name)}<td>${esc(p.product)}<td>${p.price}<td>${p.period}<td>${p.min_qty}
+        <td>${p.start_date || ""} → ${p.end_date || ""}
+        <td>${[p.auto_close && "auto-close", p.allow_pause && "pause", p.allow_close && "close", p.allow_renew && "renew"].filter(Boolean).join(", ")}</tr>`).join("")}</table>`;
+    $("#pf").onsubmit = async e => {
+      e.preventDefault(); const f = e.target, d = formData(f);
+      ["auto_close", "allow_pause", "allow_close", "allow_renew"].forEach(k => d[k] = f[k].checked);
+      await api("/plans", "POST", d); toast("Plan created"); pages.plans();
+    };
+  },
+
+  async subs() {
+    const [list, plans] = await Promise.all([api("/subscriptions"), api("/plans")]);
+    const states = ["Quotation", "Confirmed", "Active", "Paused", "Closed"];
+    view.innerHTML = `<h2>Subscriptions</h2>
+      <form id=sf>
+        <input name=customer placeholder=Customer required>
+        <select name=plan_id>${plans.map(p => `<option value=${p.id}>${esc(p.name)} (${p.period})`).join("")}</select>
+        <input name=qty type=number value=1> <input name=start_date type=date value="${today()}">
+        <select name=payment_terms><option>Net 15<option>Net 30<option>Net 0</select>
+        <input name=discount_pct type=number step=0.01 placeholder="Discount %">
+        <button>Create</button>
+      </form>
+      <table><tr><th>No.<th>Customer<th>Plan<th>Qty<th>Expiry<th>Next billing<th>Status<th>Actions</tr>
+      ${list.map(s => `<tr><td>${s.number}<td>${esc(s.customer)}<td>${esc(s.plan_name)}<td>${s.qty}<td>${s.expiry_date}<td>${s.next_billing}
+        <td><span class="tag ${s.status}">${s.status}</span>
+        <td>${states.filter(x => x !== s.status).map(x => `<button class=sm data-s="${s.id}:${x}">${x}</button>`).join("")}
+        <button class=sm data-r="${s.id}">Renew</button></tr>`).join("")}</table>`;
+    $("#sf").onsubmit = async e => {
+      e.preventDefault(); await api("/subscriptions", "POST", formData(e.target)); toast("Subscription created"); pages.subs();
+    };
+    view.querySelectorAll("[data-s]").forEach(b => b.onclick = async () => {
+      const [id, st] = b.dataset.s.split(":"); await api(`/subscriptions/${id}/status`, "POST", {status: st}); pages.subs();
+    });
+    view.querySelectorAll("[data-r]").forEach(b => b.onclick = async () => {
+      await api(`/subscriptions/${b.dataset.r}/renew`, "POST"); toast("Renewed for another year"); pages.subs();
+    });
+  },
+
+  async invoices(filter = "") {
+    const list = await api("/invoices" + (filter ? `?status=${filter}` : ""));
+    view.innerHTML = `<h2>Invoices</h2>
+      <button id=run>▶ Run billing now</button>
+      Filter: ${["", "Draft", "Confirmed", "Paid", "Cancelled", "Overdue"].map(f => `<a href="#" data-f="${f}">${f || "All"}</a>`).join(" · ")}
+      <table><tr><th>Invoice<th>Customer<th>Period<th>Subtotal<th>Disc<th>Tax<th>Total<th>Due<th>Status<th>Actions</tr>
+      ${list.map(i => `<tr><td><a href="#" data-o="${i.id}">${i.number}</a><td>${esc(i.customer)}<td>${i.period_start} → ${i.period_end}
+        <td>${i.subtotal}<td>${i.discount}<td>${i.tax}<td>${i.total}<td>${i.due_date}
+        <td><span class="tag ${i.status}">${i.status}</span>
+        <td>${i.status === "Draft" ? `<button class=sm data-c="${i.id}:Confirmed">Confirm</button>` : ""}
+        ${["Draft", "Confirmed"].includes(i.status) ? `<button class=sm data-c="${i.id}:Cancelled">Cancel</button>` : ""}</tr>`).join("")}</table>`;
+    $("#run").onclick = async () => {
+      const r = await api("/billing/run", "POST"); toast(`${r.created} invoice(s) created, ${r.closed} auto-closed`); pages.invoices(filter);
+    };
+    view.querySelectorAll("[data-f]").forEach(a => a.onclick = e => { e.preventDefault(); pages.invoices(a.dataset.f); });
+    view.querySelectorAll("[data-o]").forEach(a => a.onclick = e => { e.preventDefault(); pages.invoice(a.dataset.o); });
+    view.querySelectorAll("[data-c]").forEach(b => b.onclick = async () => {
+      const [id, st] = b.dataset.c.split(":"); await api(`/invoices/${id}/status`, "POST", {status: st}); pages.invoices(filter);
+    });
+  },
+
+  async invoice(id) {
+    const i = await api("/invoices/" + id);
+    view.innerHTML = `<h2>${i.number} <span class="tag ${i.status}">${i.status}</span></h2>
+      <p>Customer <b>${esc(i.customer)}</b> · Subscription ${i.sub_no} · ${i.period_start} → ${i.period_end}</p>
+      <p>Subtotal ${i.subtotal} − Discount ${i.discount} + Tax ${i.tax} = <b>Total ${i.total}</b> · Due ${i.due_date}</p>
+      <button onclick="window.print()">🖨 Print</button> <button id=back>← Back</button>
+      ${i.status === "Confirmed" ? `<h3>Record payment</h3><form id=pay>
+        <select name=method><option>UPI<option>Card<option>Bank transfer<option>Cash</select>
+        <input name=amount type=number step=0.01 value="${i.total}"><input name=paid_on type=date value="${today()}">
+        <input name=note placeholder=Note><button>Save</button></form>` : ""}
+      <h3>Payments</h3><table><tr><th>Method<th>Amount<th>Date<th>Note</tr>
+      ${i.payments.map(p => `<tr><td>${p.method}<td>${p.amount}<td>${p.paid_on}<td>${esc(p.note)}</tr>`).join("")}</table>`;
+    $("#back").onclick = () => pages.invoices();
+    const f = $("#pay");
+    if (f) f.onsubmit = async e => {
+      e.preventDefault(); await api(`/invoices/${id}/payments`, "POST", formData(f)); toast("Payment recorded"); pages.invoice(id);
+    };
+  }
+};
+
+document.querySelectorAll("nav a").forEach(a => a.onclick = () => {
+  document.querySelectorAll("nav a").forEach(x => x.classList.toggle("on", x === a));
+  pages[a.dataset.p]();
+});
+document.querySelector('nav a[data-p="dashboard"]').click();
+</script>
+</body>
+</html>
